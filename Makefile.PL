@@ -8,4 +8,8 @@ WriteMakefile(
     'PREREQ_PM' => {
                 'CIPP' => 2.13
                 },
+    'dist' => {
+        COMPRESS => "gzip",
+        SUFFIX => "gz"
+    }
 );

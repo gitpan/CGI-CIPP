@@ -1,13 +1,14 @@
 package CGI::CIPP;
 
-$VERSION = "0.05";
-$REVISION = q$Revision: 1.5 $;
+$VERSION = "0.06";
+$REVISION = q$Revision: 1.6 $;
 
 use strict;
-
+use Carp;
 use FileHandle;
 use Config;
 use File::Path;
+use Fcntl ':flock';
 
 # this global hash holds the timestamps of the compiled perl
 # subroutines for this instance
@@ -154,14 +155,14 @@ sub preprocess {
 	}
 
 	# Wegschreiben
-	my $output = new FileHandle;
-	open ($output, "> $sub_filename") or die "can't write $sub_filename";
-	print $output "# mime-type: $CIPP->{mime_type}\n";
-	print $output "sub $sub_name {\nmy (\$cipp_apache_request) = \@_;\n";
-	print $output $perl_code;
-	print $output "}\n";
-	close $output;
+	$perl_code =
+		"# mime-type: $CIPP->{mime_type}\n".
+		"sub $sub_name {\nmy (\$cipp_apache_request) = \@_;\n".
+		$perl_code.
+		"}\n";
 
+	$self->write_locked ($sub_filename, \$perl_code);
+	
 	# Cache-Dependency-File updaten
 	$self->set_dependency ($CIPP->Get_Used_Macros);
 
@@ -200,9 +201,7 @@ sub set_dependency {
 		}
 	}
 
-	open (DEP, "> $dep_filename") or die "can't write $dep_filename";
-	print DEP join ("\t", @list);
-	close DEP;
+	$self->write_locked ($dep_filename, join ("\t", @list));
 }
 
 sub compile {
@@ -213,16 +212,17 @@ sub compile {
 	my $sub_name = $self->{sub_name};
 	my $sub_filename = $self->{sub_filename};
 	
-	my $input = new FileHandle;
+	my $sub_sref = $self->read_locked ($sub_filename);
 	
-	open ($input, $sub_filename) or die "can't read $sub_filename";
-	my $mime_type = <$input>;
+	# cut off fist line (with mime type)
+	$$sub_sref =~ s/^(.*)\n//;
+	
+	# extract mime type
+	my $mime_type = $1;
 	$mime_type =~ s/^#\s*mime-type:\s*//;
-	chop $mime_type;
-	my $sub = join ('', <$input>);
-	close $input;
 
-	eval $sub;
+	# compile the code
+	eval $$sub_sref;
 
 	if ( $@ ) {
 		$self->{error} = "compilation\t$@";
@@ -276,10 +276,7 @@ sub error {
 	my $uri = $self->{uri};
 
 	if ( $error !~  m/^runtime\t/ ) {
-		my $output = new FileHandle;
-		open ($output, "> $err_filename") or die "can't write $err_filename";
-		print $output $error;
-		close ($output);
+		$self->write_locked ($err_filename, $error);
 		print "Content-type: text/html\n\n";
 		print "<HTML><HEAD><TITLE>Error executing $uri</TITLE></HEAD>\n";
 		print "<BODY BGCOLOR=white>\n";
@@ -363,9 +360,8 @@ sub file_cache_ok {
 		my $cache_time = (stat ($cache_file))[9];
 
 		my $dep_filename = $self->{dep_filename};
-		open (DEP, $dep_filename) or die "can't read $dep_filename";
-		my @list = split ("\t", <DEP>);
-		close DEP;
+		my $data_sref = $self->read_locked ($dep_filename);
+		my @list = split ("\t", $$data_sref);
 
 		my $path;
 		foreach $path (@list)  {
@@ -412,12 +408,9 @@ sub has_cached_error {
 	my $err_filename = $self->{err_filename};
 	
 	if ( -e $err_filename ) {
-		my $input = new FileHandle;
-		open ($input, $err_filename) or
-			die "can't read $err_filename";
-		$self->{'error'} = join ('', <$input>);
-		close $input;
+		my $error_sref = $self->read_locked ($err_filename);
 
+		$self->{'error'} = $$error_sref;
 		$self->{status}->{cached_error} = 1;
 		
 		return 1;
@@ -443,6 +436,44 @@ sub resolve_uri {
 	$self->{'debug'} && print STDERR "lookup_uri: base=$self->{uri}: '$uri' -> '$filename'\n";
 
 	return $filename;
+}
+
+sub write_locked {
+	my $self = shift;
+	
+	my ($filename, $data) = @_;
+	
+	my $data_sref;
+	if ( not ref $data ) {
+		$data_sref = \$data;
+	} else {
+		$data_sref = $data;
+	}
+	
+	my $fh = new FileHandle;
+
+	open ($fh, "+> $filename") or croak "can't write $filename";
+	binmode $fh;
+	flock $fh, LOCK_EX or croak "can't exclusive lock $filename";
+	seek $fh, 0, 0 or croak "can't seek $filename";
+	print $fh $$data_sref or croak "can't write data $filename";
+	truncate $fh, length($$data_sref) or croak "can't truncate $filename";
+	close $fh;
+}
+
+sub read_locked {
+	my $self = shift;
+	
+	my ($filename) = @_;
+
+	my $fh = new FileHandle;
+	open ($fh, $filename) or croak "can't read $filename";
+	binmode $fh;
+	flock $fh, LOCK_SH or croak "can't share lock $filename";
+	my $data = join ('', <$fh>);
+	close $fh;
+
+	return \$data;
 }
 
 # Apache::Request compatibility routines
@@ -525,7 +556,7 @@ sub internal_redirect {
 	$ENV{QUERY_STRING} = $query_string;
 	$ENV{REQUEST_METHOD} = "GET";
 	
-	print STDERR "query_string=$query_string\n";
+#	print STDERR "query_string=$query_string\n";
 	
 	# so werden keine Datenbankverbindungen vom
 	# aufgerufenen Script geöffnet oder geschlossen

@@ -1,4 +1,8 @@
-$Id: Changes,v 1.4 1999/10/10 09:07:20 joern Exp $
+$Id: Changes,v 1.5 2000/03/18 10:47:21 joern Exp $
+
+0.06  Sat Mar 18 2000 joern
+	- all file operations use now flock() to prevent corrupt
+	  cache files
 
 0.05  Sun Feb 20 2000 joern
 	- bugfix: internal redirects did not pass CGI parameters
@@ -10,7 +14,7 @@ $Id: Changes,v 1.4 1999/10/10 09:07:20 joern Exp $
 	  CGI::CIPP in combination with the Apache webserver
 
 0.03  Sun Oct 3 1999 joern
-	- simple forgotten to add README to MANIFEST, so the README
+	- simply forgotten to add README to MANIFEST, so the README
 	  was not part of the dist file
 
 0.02  Sat Oct 2 1999 joern
