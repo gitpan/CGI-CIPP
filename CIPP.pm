@@ -1,12 +1,11 @@
 package CGI::CIPP;
 
-$VERSION = "0.04";
-$REVISION = q$Revision: 1.3 $;
+$VERSION = "0.05";
+$REVISION = q$Revision: 1.5 $;
 
 use strict;
 
 use FileHandle;
-use CIPP;
 use Config;
 use File::Path;
 
@@ -131,6 +130,7 @@ sub preprocess {
 	my $use_inc_cache = 0;
 	my $lang = $self->{lang};
 
+	require "CIPP.pm";
 	my $CIPP = new CIPP (
 		$source, $target, $project_hash, $database_hash, $mime_type,
 		$default_db, $call_path, $skip_header_line, $debugging,
@@ -332,7 +332,7 @@ sub set_sub_filename {
 	$dir =~ s!/[^/]+$!!;
 	$dir = $cache_dir.$dir;
 	
-	( mkpath ($dir, 0, 0700) or die "can't create $dir" ) if not -d $dir;
+	( mkpath ($dir, 0, 0770) or die "can't create $dir" ) if not -d $dir;
 	
 	$filename =~ s!^/!!;
 	$self->{sub_filename} = "$cache_dir/$filename.sub";
@@ -374,7 +374,7 @@ sub file_cache_ok {
 		}
 	} else {
 		# check if cache_dir exists and create it if not
-		mkdir ($self->{cache_dir},0700)	if not -d $self->{cache_dir};
+		mkdir ($self->{cache_dir},0770)	if not -d $self->{cache_dir};
 		return;
 	}
 
@@ -496,6 +496,7 @@ sub send_http_header {
 	my $self = shift;
 	
 	my $content_type = $self->{'content_type'} || 'text/html';
+
 	print "Content-type: $content_type\n";
 	
 	if ( defined $self->{'header_out'} ) {
@@ -521,10 +522,19 @@ sub internal_redirect {
 	my $old_request_method = $ENV{REQUEST_METHOD};
 	
 	$ENV{PATH_INFO} = $path_info;
-	$ENV{QUERY_STRING} = $path_info;
+	$ENV{QUERY_STRING} = $query_string;
 	$ENV{REQUEST_METHOD} = "GET";
 	
+	print STDERR "query_string=$query_string\n";
+	
+	# so werden keine Datenbankverbindungen vom
+	# aufgerufenen Script geöffnet oder geschlossen
+	$CIPP_Exec::no_db_connect = 1;
+
 	CGI::CIPP->request ( %{$self} );
+
+	# Flag wieder zurücksetzen
+	$CIPP_Exec::no_db_connect = 0;
 	
 	$ENV{PATH_INFO} = $old_path_info;
 	$ENV{QUERY_STRING} = $old_query_string;

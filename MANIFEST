@@ -6,3 +6,4 @@ Makefile.PL
 test.pl
 test.cipp
 example.cgi
+lib/CIPP/CGI.pm

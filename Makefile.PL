@@ -6,6 +6,6 @@ WriteMakefile(
     'NAME'	=> 'CGI::CIPP',
     'VERSION_FROM' => 'CIPP.pm', # finds $VERSION
     'PREREQ_PM' => {
-                'CIPP' => 2.0
+                'CIPP' => 2.13
                 },
 );
