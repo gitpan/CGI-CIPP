@@ -1,7 +1,7 @@
 package CGI::CIPP;
 
-$VERSION = "0.02";
-$REVISION = q$Revision: 1.2 $;
+$VERSION = "0.04";
+$REVISION = q$Revision: 1.3 $;
 
 use strict;
 
@@ -655,15 +655,10 @@ CGI::CIPP->request call follows:
 
 This is the base directory where all your CIPP files resides.
 You will place CIPP programs, Includes and Config files inside
-this subdirectory. Using subdirectories is permitted.
-
-Beware that if you place your CIPP files into a subdirectory
-of your webservers document root, you risk that someone can
-fetch your CIPP source files, if he knows the URL of your CIPP
-document root. If you do not use the mod_rewrite configuration
-explained beyond, you never should place your CIPP files into
-your webservers document root. There is no advantage for doing
-this.
+this subdirectory. Using subdirectories is permitted. If you
+use the Apache webserver you should point this to your Apache
+DocumentRoot and set up a extra handler for CIPP. See the Apache
+chapter beyond for details.
 
 =item dB<irectory_index>
 
@@ -676,7 +671,7 @@ it will be executed.
 
 This names the directory where CGI::CIPP can store the
 preprocessed CIPP programs. If the directory does not exist
-it will be created. Aware, the the directory must have write
+it will be created. Aware, that the directory must have write
 access for the user under which your webserver software is running.
 
 =item B<databases>
@@ -735,65 +730,33 @@ Be aware of the real URL of your page if you use relative URL's
 to non CIPP pages in your CIPP page. In the above example relative
 URL's must consider that the CGI wrapper program is located in a
 different location as the directory you declared as the CIPP document
-root. To avoid confusion about this, you should configure your
-webserver in that way, that the CGI wrapper program has a URL
-which is located inside your webservers document root. This way
-using relative URLs is easier, because you never left the document
-root of your webserver.
+root. This implies that it is not possible to place CIPP program
+files and traditional static HTML documents or images into the
+same directory.
+
+=head1 APACHE CONFIGURATION
 
 If you're using the Apache webserver (what is always recommended :)
-you have several alternatives of doing this, e.g
+you can avoid the above stated disadvantages. In this case you
+should configure your CIPP CGI wrapper program as a extra handler.
 
-  - using a extra ScriptAlias
-  - using mod_rewrite
+Simply add the following directives to your appropriate Apache
+config file:
 
-=head2 Using a extra ScriptAlias
-
-This is a example configuration of using a ScriptAlias to configure
-CIPP for easy usage of relative URLs.
-
-These are the corresponding basic Apache configuration parameters:
-
-  DocumentRoot	"/www/htdocs"
-  ScriptAlias	"/cipp" "/www/cgi-bin/cipp"
-
-The CIPP document root is still placed outside your webservers
-document root, so nobody can access your CIPP source files directly.
-
-This is a example URL for a CIPP page located in
-/www/cippfiles/foo/test.cipp
-
-  http://somehost/cipp/foo/test.cipp
-  
-The disadvantage of this configuration is, that your CIPP root
-directory /www/cippfiles cannot contain other files than CIPP
-files. It is not possible to put images or static HTML documents
-here, because you cannot reach these documents with normal URLs.
-
-=head2 Using mod_rewrite
-
-You avoid the above mentioned disadvantage if you use mod_rewrite.
-These are the corresponding basic Apache configuration parameters 
-(please refer to the Apache documentation for details). You will
-need Apache version 1.2.x or better for using mod_rewrite.
-
-  DocumentRoot	"/www/htdocs"
-  ScriptAlias	"/cgi-bin" "/www/cgi-bin"
-  RewriteEngine	"on"
-  RewriteRule	"^/(.*\.cipp.*)" "/cgi-bin/cipp/$1" [PT]
+  AddHandler x-cipp-execute cipp
+  Action x-cipp-execute /cgi-bin/cipp
 
 The CGI wrapper program is still located in a extra cgi-bin directory.
-But the RewriteRule directs all URL's with the suffix .cipp,
-no matter where they are located, to the CIPP CGI wrapper program.
+But now all files with the extension .cipp are handled through
+it.
 
-The CGI::CIPP configuration changes, we reasign the document_root:
+The CGI::CIPP configuration slightly changes, we reasign the
+document_root:
 
   document_root	/www/htdocs
 
-We now declare the Apache DocumentRoot also to the document_root of
-CGI::CIPP, so no special subdirectory is needed. The Apache rewrite
-engine is responsible for translating URL's with the suffix .cipp to
-a appropriate call of the CGI wrapper program.
+We now declare the Apache DocumentRoot also to be the document_root of
+CGI::CIPP, so no special subdirectory is needed.
 
 This is a example URL for a CIPP page located in /www/htdocs/foo/test.cipp
 
@@ -801,9 +764,24 @@ This is a example URL for a CIPP page located in /www/htdocs/foo/test.cipp
 
 Now you are able to place CIPP files on your webserver wherever you want,
 because there is no special CIPP directory anymore. Only the suffix
-.cipp is relevant, due to the RewriteRule above. So you can mix traditional
-static documents with CIPP files and relative URL adressing is no problem
-at all.
+.cipp is relevant, due to the AddHandler directive above. So you can mix
+traditional static documents with CIPP files and relative URL adressing
+is no problem at all.
+
+=head2 Security Hint
+
+To prevent users from viewing your Include or Config files, you should
+configure your webserver to forbid access to these files. In case of
+Apache add the following contatiner to your Apache configuration:
+
+  <Location ~ "\.(conf|inc)$">
+    Order allow,deny
+    Deny from all
+  </Location>  
+
+This assumes that you name your Config files *.conf and your Include
+*.inc. CIPP does not care about the extensions of your Config and
+Include files. To make your life easier, you should ;)
 
 =head1 CGI::SpeedyCGI and CIPP::CGI
 
@@ -814,12 +792,12 @@ more faster.
 
 Using CIPP::CGI together with CGI::SpeedyCGI is easy. Simply replace
 the perl interpreter path in the shebang line
-#!/usr/local/bin/perl
+C<#!/usr/local/bin/perl>
 with the according path to the speedy program, e.g.:
-#!/usr/local/bin/speedy.
+C<#!/usr/local/bin/speedy>.
 
 Refer to the CGI::SpeedyCGI documentation for details about configuring
-SpeedyCGI. We recommend the usage of the C<-r> and C<-t> switch, so you are
+SpeedyCGI. I recommend the usage of the C<-r> and C<-t> switch, so you are
 able to control the number of parallel living speedy processes, e.g.
 
   #!/usr/local/bin/speedy -- -r30 -t120
