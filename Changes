@@ -1,0 +1,16 @@
+$Id: Changes,v 1.2 1999/10/02 13:16:54 joern Exp $
+
+0.02  Sat Oct 2 1999 joern
+	- database configuration is given as a nice hash reference,
+	  instead of the Apache style configuration parameters.
+	  It's more Perl style than Apache style now :)
+
+0.01  Fri Sep 11 1999 joern
+	- first internal version, mainly copied from Apache::CIPP
+	  and modified to run without Apache. I replaced the
+	  Apache request object with a object of CGI::CIPP
+	  and reimplemented the needed Apache methods in the
+	  CGI::CIPP class. This way I need not to change
+	  CIPP.pm itself. It has no idea of where it works,
+	  under CGI::CIPP or Apache::CIPP.
+
