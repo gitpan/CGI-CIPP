@@ -1,7 +1,7 @@
 package CGI::CIPP;
 
-$VERSION = "0.06";
-$REVISION = q$Revision: 1.6 $;
+$VERSION = "0.07";
+$REVISION = q$Revision: 1.8 $;
 
 use strict;
 use Carp;
@@ -275,16 +275,21 @@ sub error {
 	my $error = $self->{error};
 	my $uri = $self->{uri};
 
-	if ( $error !~  m/^runtime\t/ ) {
+	my ($type) = split ("\t", $error);
+
+	if ( $type eq 'cipp-syntax' ) {
 		$self->write_locked ($err_filename, $error);
-		print "Content-type: text/html\n\n";
-		print "<HTML><HEAD><TITLE>Error executing $uri</TITLE></HEAD>\n";
-		print "<BODY BGCOLOR=white>\n";
+	} else {
+		unlink $sub_filename;
+		unlink $err_filename;
 	}
 
-	my ($type) = split ("\t", $error);
 	$error =~ s/^([^\t]+)\t//;
 	
+	print "Content-type: text/html\n\n";
+	print "<HTML><HEAD><TITLE>Error executing $uri</TITLE></HEAD>\n";
+	print "<BODY BGCOLOR=white>\n";
+
 	print "<P>Error executing <B>$uri</B>:\n";
 	print "<DL><DT><B>Type</B>:</DT><DD><TT>$type</TT></DD>\n";
 	print "<P><DT><B>Message</B>:</DT><DD><PRE>$error</PRE></DD></DL>\n";

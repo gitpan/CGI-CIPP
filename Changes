@@ -1,4 +1,7 @@
-$Id: Changes,v 1.5 2000/03/18 10:47:21 joern Exp $
+$Id: Changes,v 1.7 2001/02/04 09:27:09 joern Exp $
+
+0.07 joern
+	- no caching of perl syntax errors
 
 0.06  Sat Mar 18 2000 joern
 	- all file operations use now flock() to prevent corrupt
